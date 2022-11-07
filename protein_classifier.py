@@ -132,7 +132,11 @@ def eval(y_true, y_pred):
     accuracy = 100 * ((tp + tn) / (tp + tn + fp + fn))
     mcc = math.sqrt(abs((tp + fp) * (tp + fn) * (tp + fp) * (tn + fn)))
     if not mcc == 0:
-        mcc = ((tp * tn) - (fp * fn)) / math.sqrt(abs((tp + fp) * (tp + fn) * (tp + fp) * (tn + fn)))
+        numerator = (tp * tn) - (fp * fn)
+        denominator = (tp + fp) * (tp + fn) * (tn + fp) * (tn + fn)
+        denominator = abs(denominator)
+        denominator = math.sqrt(denominator)
+        mcc = numerator / denominator
     return sensitivity, specificity, accuracy, mcc
 
 
