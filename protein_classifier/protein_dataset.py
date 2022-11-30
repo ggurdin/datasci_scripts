@@ -147,3 +147,12 @@ class ProteinDataset:
 
     def make_df(self):
         self.x = pd.DataFrame(self.x, columns=self.features)
+
+
+    def select_features(self, features):
+        features = np.array([x for x in features if x == x and x != 'nan'])
+        self.original_data = self.x
+        self.x = self.x[features]
+
+    def reset_features(self):
+        self.x = self.original_data
