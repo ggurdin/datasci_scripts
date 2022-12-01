@@ -1,43 +1,50 @@
 import numpy as np
 import math
-from sklearn.utils import resample
-import pandas as pd
-from sklearn.metrics import matthews_corrcoef, multilabel_confusion_matrix
+from sklearn.metrics import matthews_corrcoef, accuracy_score, multilabel_confusion_matrix, confusion_matrix
 
 
 class ProteinModel:
+    '''
+    Models are trained on ProteinDatasets 
 
+    Attributes:
+        clf (sklearn classifier): model to train
+        dataset (ProteinDataset): dataset to train, predict, or validate with
+    '''
     def __init__(self, classifier, dataset):
+        '''
+        Initializes model
+
+        Args:
+            clf (sklearn classifer): classifer to train or validate
+            dataset (ProteinDataset): dataset to train, predict, or validate with
+        '''
         self.clf = classifier
         self.dataset = dataset
 
-    
-    def __str__(self):
-        return "this is a model"
+    def set_dataset(self, dataset):
+        self.dataset = dataset
 
-    def upsample(self, x):
-        pass
+    def train(self):
+        '''trains classifier'''
+        x = self.dataset.x
+        y = self.dataset.y
+        self.clf.fit(x, y)
 
-    def validate(self, dna_only=False, rna_only=False):
+    def predict(self, dataset):
+        '''predicts using trained classifier'''
+        self.set_dataset(dataset)
+        x = self.dataset.x
+        preds = self.clf.predict(x)
+        return preds
+
+    def validate(self):
+        '''5-fold cross validation'''
         predicted, real = [], []
-        folds = self.dataset.split(dna_only, rna_only)
+        folds = self.dataset.split()
         for fold in folds:
             train, test = fold
             train_x, train_y = train
-
-            # x_positive, y_positive = resample(
-            #     train_x[train_y== 1],
-            #     train_y[train_y == 1],
-            #     replace=True,
-            #     n_samples=train_x[train_y == 0].shape[0],
-            #     random_state=123
-            # )
-            # x_negative = train_x[train_y == 0]
-            # y_negative = train_y[train_y == 0]
-            
-            # train_x = np.concatenate([x_positive, x_negative])
-            # train_y = np.concatenate([y_positive, y_negative])
-
             self.clf.fit(train_x, train_y)
 
             test_x, test_y = test
@@ -47,32 +54,29 @@ class ProteinModel:
         real = np.array(real)
         predicted = np.array(predicted)
 
-        if dna_only or rna_only:
-            labels = [0, 1]
-        else:
-            labels = ['nonDRNA', 'DRNA', 'RNA', 'DNA']
-        
+        labels = ['nonDRNA', 'DRNA', 'RNA', 'DNA']
         self.eval(predicted, real, labels)
 
 
     def eval(self, predicted, real, labels):
+        '''
+        evaluates prediction performance during cross validation
+
+        Args:
+            predicted (np.array): list of predicted labels
+            real (np.array): list of real labels
+            labels (list): list of labels, used to determine order of confusion matrix
+        '''
         real = np.array(real)
         predicted = np.array(predicted)
-        cm = {}
-
-        for pred_label in labels:
-            pred_indices = np.argwhere(predicted == pred_label)
-            reals = real[pred_indices]
-
-            for actual_label in labels:
-                if pred_label not in cm:
-                    cm[pred_label] = {}
-                cm[pred_label][actual_label] = np.sum((reals == actual_label).astype(int))
+        print(labels)
+        print(confusion_matrix(real, predicted, labels=labels))
+        print("Accuracy: ", accuracy_score(real, predicted))
+        print("MCC: ", matthews_corrcoef(real, predicted))
 
         labels = ["DNA", "RNA", "DRNA", "nonDRNA"]
         cms = multilabel_confusion_matrix(real, predicted, labels=labels)
 
-        mccs, senss, specs, accs = [], [], [], []
         for i, cm in enumerate(cms):
             print(labels[i])
             print(cm)
@@ -84,15 +88,10 @@ class ProteinModel:
                 mcc_ = 0
             else:
                 mcc_ = ((tp * tn) - (fp * fn)) / math.sqrt((tp + fp) * (tp + fn) * (tn + fp) * (tn + fn))
-            mccs.append(mcc_)
 
             sens = 100 * (tp / (tp + fn))
             spec = 100 * (tn / (tn + fp))
             acc = 100 * ((tp + tn) / (tp + tn + fp + fn))
-
-            senss.append(sens)
-            specs.append(sens)
-            accs.append(acc)
 
             print("Sens: ", sens)
             print("Spec: ", spec)
@@ -100,31 +99,26 @@ class ProteinModel:
             print("MCC: ", mcc_)
             print("\n")
 
-        avg_mcc = sum(mccs) / len(mccs)
-        avg_acc = sum(accs) / len(accs)
-        print("Average MCC: ", avg_mcc)
-        print("Average accuracy: ", avg_acc)
 
-
-    def print_metrics(self, cm, sens, spec, acc, mcc, labels):
-        print("\tActual: " + "\t".join([str(label) for label in labels]))
-        print("Predicted:")
-        for pred_label in labels:
-            row_str = "\t" + str(pred_label) + "\t"
-            for actual_label in labels:
-                row_str += str(cm[pred_label][actual_label]) + "\t"
-            print(row_str)  
-        print("\n") 
-        if 0 in labels:
-            print(f"Sens: {sens}")
-            print(f"Spec: {spec}")
-            print(f"Acc: {acc}")
-            print(f"MCC: {mcc}") 
-        elif "DNA" in labels:
-            for label in labels:
-                print(f"{label} metrics:")
-                print(f"\tSens: {sens[label]}")
-                print(f"\tSpec: {spec[label]}")
-                print(f"\tAcc: {acc[label]}")
-                print(f"\tMCC: {mcc[label]}")
-                print("\n")
+    # def print_metrics(self, cm, sens, spec, acc, mcc, labels):
+    #     print("\tActual: " + "\t".join([str(label) for label in labels]))
+    #     print("Predicted:")
+    #     for pred_label in labels:
+    #         row_str = "\t" + str(pred_label) + "\t"
+    #         for actual_label in labels:
+    #             row_str += str(cm[pred_label][actual_label]) + "\t"
+    #         print(row_str)  
+    #     print("\n") 
+    #     if 0 in labels:
+    #         print(f"Sens: {sens}")
+    #         print(f"Spec: {spec}")
+    #         print(f"Acc: {acc}")
+    #         print(f"MCC: {mcc}") 
+    #     elif "DNA" in labels:
+    #         for label in labels:
+    #             print(f"{label} metrics:")
+    #             print(f"\tSens: {sens[label]}")
+    #             print(f"\tSpec: {spec[label]}")
+    #             print(f"\tAcc: {acc[label]}")
+    #             print(f"\tMCC: {mcc[label]}")
+    #             print("\n")

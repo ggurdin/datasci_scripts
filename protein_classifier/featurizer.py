@@ -6,11 +6,25 @@ import metapredict as meta
 import collections
 from scipy.stats import entropy
 from Bio.SeqUtils.ProtParam import ProteinAnalysis
+from parse_aaindex import AAIndexParser
 
 
 class Featurizer:
+    '''
+    Encodes sequences into features
 
+    Attributes:
+        sequences (np.array): list of protein sequences to encode
+        encodings (dict): encoded sequences
+        aas (list): list of amino acids. Used for computing AAC, DPC, and TPC 
+    '''
     def __init__(self, dataset):
+        '''
+        Initializes featurizer
+
+        Args:
+            dataset (ProteinDataset): dataset to encode
+        '''
         self.sequences = dataset.x
         self.encodings = {}
         self.aas = [
@@ -20,6 +34,13 @@ class Featurizer:
         ]
 
     def biopython_features(self, output="../data/bio_data.csv"):
+        '''
+        Generates biopython features (instability_index, 
+        gravy, secondary structure fractions, and charge)
+
+        Args:
+            output (str): path to output encoded features
+        '''
         all_features = []
         for seq in self.sequences:
             features = {}
@@ -44,6 +65,13 @@ class Featurizer:
         df.to_csv(output, index=False)
 
     def percent_disorder(self, output="../data/disorder.csv"):
+        '''
+        Generates percent disorder feature
+        *** This function is computationally expensive ***
+
+        Args:
+            output (str): path to output encoded features
+        '''
         disorders = []
         for i, seq in enumerate(self.sequences):
             if i % 100 == 0:
@@ -55,23 +83,43 @@ class Featurizer:
         df = pd.DataFrame(disorders, columns="percent_disoder")
         df.to_csv(output, index=False)
 
-
-    # from https://onestopdataanalysis.com/shannon-entropy/
     def estimate_shannon_entropy(self, sequence):
+        '''
+        calculates shannon entropy of a protein sequences
+        source -> https://onestopdataanalysis.com/shannon-entropy/
+
+        Args:
+            sequence (str): the protein sequence
+        '''
         bases = collections.Counter([tmp_base for tmp_base in sequence])
         dist = [x/sum(bases.values()) for x in bases.values()]
         entropy_value = entropy(dist, base=2)
         return entropy_value
 
     def shannon_entropy(self, output="../data/entropy.csv"):
+        '''
+        Generates shannon entropy feature
+
+        Args:
+            output (str): path to output encoded features
+        '''
         entropies = []
         for seq in self.sequences:
             entropies.append(self.estimate_shannon_entropy(seq))
         df = pd.DataFrame(entropies, columns=["shannon_entropy"])
-        df.to_csv("../data/entropy.csv", index=False)
+        df.to_csv(output, index=False)
             
 
-    def compute_aaindex(self, parser, output="../data/aaindex.csv"):
+    def compute_aaindex(self, aaindex_path, output="../data/aaindex.csv"):
+        '''
+        Generates AAIndex features
+
+        Args:
+            aaindex_path (atr): path to aaindex1 file
+            output (str): path to output encoded features
+        '''
+        parser = AAIndexParser(aaindex_path)
+        parser.parse()
         aaindex = parser.aaindex
         vectors = []
 
@@ -94,9 +142,22 @@ class Featurizer:
 
 
     def substring_count(self, sequence, peptide):
+        '''
+        Counts occurances of substring in sequences
+
+        Args:
+            sequence (str): protein sequence
+            peptide (str): substring to count occurances of
+        '''
         return len(re.findall(rf"{peptide}", sequence)) / len(sequence)
 
     def amino_acid_comp(self, output="../data/aac.csv"):
+        '''
+        Generates AAC features
+
+        Args:
+            output (str): path to output encoded features
+        '''
         aacs = []
         for seq in self.sequences:
             seq_length = len(seq)
@@ -108,6 +169,12 @@ class Featurizer:
         df.to_csv(output, index=False)
 
     def dipeptide_comp(self, output="../data/dpc.csv"):
+        '''
+        Generates DPC features
+
+        Args:
+            output (str): path to output encoded features
+        '''
         dps = []
         for aa1 in self.aas:
             for aa2 in self.aas:
@@ -126,6 +193,12 @@ class Featurizer:
         df.to_csv(output, index=False)
 
     def tripeptide_comp(self, output="../data/tpc.csv"):
+        '''
+        Generates TPC features
+
+        Args:
+            output (str): path to output encoded features
+        '''
         tps = []
         for aa1 in self.aas:
             for aa2 in self.aas:
